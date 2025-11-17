@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class EmployeeLeaveSummaryDaily extends Model
 {
+
+
     protected $fillable = [
         'employee_id',
         'date',

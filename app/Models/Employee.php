@@ -2,22 +2,26 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Employee extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'name_full',
+        'full_name',
         'email',
         'position',
         'manager_id',
         'role',
         'leave_balance',
+    ];
+
+    protected $casts = [
+        'leave_balance' => 'float',
     ];
 
     public function manager(): BelongsTo

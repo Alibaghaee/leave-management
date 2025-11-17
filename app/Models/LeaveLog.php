@@ -13,6 +13,7 @@ class LeaveLog extends Model
         'performed_by',
         'meta',
     ];
+    protected $casts = ['meta' => 'array'];
 
     public function leaveRequest(): BelongsTo
     {

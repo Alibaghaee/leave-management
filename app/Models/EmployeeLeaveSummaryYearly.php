@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class EmployeeLeaveSummaryYearly extends Model
 {
+
+
     protected $fillable = [
         'employee_id',
         'year',

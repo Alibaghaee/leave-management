@@ -12,7 +12,7 @@ class Stage extends Model
         'name',
         'role',
         'order',
-        'days_min',
+        'min_days',
         'next_stage_id',
     ];
 
@@ -23,6 +23,6 @@ class Stage extends Model
 
     public function leaveRequests(): HasMany
     {
-        return $this->hasMany(LeaveRequest::class, 'current_stage_id');
+        return $this->hasMany(LeaveRequest::class, 'stage_id');
     }
 }
