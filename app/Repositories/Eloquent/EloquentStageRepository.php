@@ -11,19 +11,23 @@ class EloquentStageRepository implements StageRepositoryInterface
     {
         return Stage::find($id);
     }
+
     public function all(): iterable
     {
-        return Stage::all();
+        return Stage::orderBy('order')->get();
     }
+
     public function create(array $data): Stage
     {
         return Stage::create($data);
     }
+
     public function update(Stage $stage, array $data): Stage
     {
         $stage->update($data);
         return $stage;
     }
+
     public function delete(Stage $stage): bool
     {
         return $stage->delete();

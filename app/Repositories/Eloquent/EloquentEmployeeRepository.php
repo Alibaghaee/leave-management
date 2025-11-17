@@ -4,6 +4,7 @@ namespace App\Repositories\Eloquent;
 
 use App\Models\Employee;
 use App\Repositories\EmployeeRepositoryInterface;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class EloquentEmployeeRepository implements EmployeeRepositoryInterface
 {
@@ -21,12 +22,11 @@ class EloquentEmployeeRepository implements EmployeeRepositoryInterface
     {
         $query = Employee::query();
 
-
         if (!empty($filters['role'])) {
             $query->where('role', $filters['role']);
         }
-        if (!empty($filters['name_full'])) {
-            $query->where('name_full', 'like', "%{$filters['name_full']}%");
+        if (!empty($filters['full_name'])) {
+            $query->where('full_name', 'like', "%{$filters['full_name']}%");
         }
         if (!empty($filters['email'])) {
             $query->where('email', $filters['email']);
@@ -34,13 +34,19 @@ class EloquentEmployeeRepository implements EmployeeRepositoryInterface
         if (!empty($filters['manager_id'])) {
             $query->where('manager_id', $filters['manager_id']);
         }
-
-        // TODO: filter for has_pending_leaves /// subquery or join with leave_requests
-
+        if (!empty($filters['has_pending_leaves'])) {
+            $query->whereExists(function ($q) {
+                $q->selectRaw('1')
+                    ->from('leave_requests')
+                    ->whereRaw('leave_requests.employee_id = employees.id')
+                    ->whereIn('leave_requests.status', ['pending_hr','pending_manager','pending_ceo']);
+            });
+        }
 
         if ($cursor) {
             $query->where('id', '>', $cursor);
         }
+
         return $query->orderBy('id')->paginate($perPage);
     }
 

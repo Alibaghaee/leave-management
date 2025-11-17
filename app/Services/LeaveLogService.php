@@ -10,24 +10,29 @@ class LeaveLogService
     public function __construct(protected LeaveLogRepositoryInterface $repository)
     {}
 
-
     public function create(array $data): LeaveLog
     {
+        $payload = [
+            'leave_request_id' => $data['leave_request_id'],
+            'action' => $data['action'],
+            'performed_by' => $data['performed_by'] ?? null,
+            'meta' => isset($data['meta']) ? json_encode($data['meta']) : (isset($data['comment']) ? json_encode(['comment' => $data['comment']]) : null),
+        ];
+        return $this->repository->create($payload);
+    }
 
-        return $this->repository->create($data);
-    }
-    public function all(): iterable
+    public function all(int $perPage = 25)
     {
+        return $this->repository->all($perPage);
+    }
 
-        return [];
-    }
-    public function allByRequest(int $leaveRequestId): iterable
+    public function allByRequest(int $leaveRequestId, int $perPage = 25)
     {
-        return $this->repository->allByRequest($leaveRequestId);
+        return $this->repository->allByRequest($leaveRequestId, $perPage);
     }
-    public function find($id)
+
+    public function find(int $id)
     {
         return $this->repository->find($id);
     }
-
 }

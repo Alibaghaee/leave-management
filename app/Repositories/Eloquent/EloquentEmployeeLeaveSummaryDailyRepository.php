@@ -9,7 +9,14 @@ class EloquentEmployeeLeaveSummaryDailyRepository implements EmployeeLeaveSummar
 {
     public function upsertMany(array $records): void
     {
-        EmployeeLeaveSummaryDaily::upsert($records, ['employee_id', 'date', 'leave_type']);
+        $now = now();
+        foreach ($records as &$r) {
+            if (! isset($r['created_at'])) {
+                $r['created_at'] = $now;
+            }
+            $r['updated_at'] = $now;
+        }
+        EmployeeLeaveSummaryDaily::upsert($records, ['employee_id', 'date', 'leave_type'], ['requested_days','approved_days','rejected_days','pending_days','leave_count','updated_at']);
     }
 
     public function findByEmployeeAndDate(int $employeeId, string $date, string $leaveType): ?EmployeeLeaveSummaryDaily
@@ -32,7 +39,6 @@ class EloquentEmployeeLeaveSummaryDailyRepository implements EmployeeLeaveSummar
         if (!empty($filters['leave_type'])) {
             $query->where('leave_type', $filters['leave_type']);
         }
-
         return $query->orderByDesc('date')->paginate($perPage);
     }
 }

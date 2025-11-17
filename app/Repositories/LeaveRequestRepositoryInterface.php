@@ -11,5 +11,4 @@ interface LeaveRequestRepositoryInterface
     public function create(array $data): LeaveRequest;
     public function update(LeaveRequest $leaveRequest, array $data): LeaveRequest;
     public function delete(LeaveRequest $leaveRequest): bool;
-
 }
