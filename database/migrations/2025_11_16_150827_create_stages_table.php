@@ -13,11 +13,10 @@ return new class extends Migration {
         Schema::create('stages', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('role');
-            $table->integer('order')->unique();
-            $table->integer('days_min')->nullable();
-            $table->unsignedBigInteger('next_stage_id')->nullable();
-            $table->foreign('next_stage_id')->references('id')->on('stages')->nullOnDelete();
+            $table->enum('role', ['hr','manager','ceo']);
+            $table->unsignedInteger('order')->unique();
+            $table->unsignedInteger('min_days')->nullable();
+            $table->foreignId('next_stage_id')->nullable()->constrained('stages')->nullOnDelete();
             $table->timestamps();
             $table->index('role');
         });

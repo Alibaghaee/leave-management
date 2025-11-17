@@ -13,16 +13,16 @@ return new class extends Migration
     {
         Schema::create('employee_leave_summary_dailies', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('employee_id');
+            $table->foreignId('employee_id')->constrained('employees')->cascadeOnDelete();
             $table->date('date');
             $table->string('leave_type');
-            $table->integer('requested_days')->default(0);
-            $table->integer('approved_days')->default(0);
-            $table->integer('rejected_days')->default(0);
-            $table->integer('pending_days')->default(0);
-            $table->integer('leave_count')->default(0);
+            $table->decimal('requested_days', 8, 2)->default(0);
+            $table->decimal('approved_days', 8, 2)->default(0);
+            $table->decimal('rejected_days', 8, 2)->default(0);
+            $table->decimal('pending_days', 8, 2)->default(0);
+            $table->unsignedInteger('leave_count')->default(0);
             $table->timestamps();
-            $table->unique(['employee_id', 'date', 'leave_type'], 'unique_summary_daily');
+            $table->unique(['employee_id','date','leave_type'],'unique_summary_daily');
             $table->index('employee_id');
             $table->index('date');
             $table->index('leave_type');

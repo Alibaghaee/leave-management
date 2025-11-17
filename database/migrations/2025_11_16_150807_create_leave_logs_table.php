@@ -13,13 +13,11 @@ return new class extends Migration
     {
         Schema::create('leave_logs', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('leave_request_id');
+            $table->foreignId('leave_request_id')->constrained('leave_requests')->cascadeOnDelete();
             $table->string('action');
-            $table->unsignedBigInteger('performed_by');
+            $table->foreignId('performed_by')->nullable()->constrained('employees')->nullOnDelete();
             $table->json('meta')->nullable();
             $table->timestamps();
-            $table->foreign('leave_request_id')->references('id')->on('leave_requests');
-            $table->foreign('performed_by')->references('id')->on('employees');
             $table->index('leave_request_id');
         });
     }
