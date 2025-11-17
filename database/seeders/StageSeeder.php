@@ -9,35 +9,34 @@ class StageSeeder extends Seeder
 {
     public function run(): void
     {
-
-        $hrStage = Stage::create([
+        $hr = Stage::create([
             'name' => 'HR Review',
             'role' => 'hr',
             'order' => 1,
-            'days_min' => 1,
-            'next_stage_id' => null
+            'min_days' => 0,
+            'next_stage_id' => null,
         ]);
-        $managerStage = Stage::create([
+
+        $manager = Stage::create([
             'name' => 'Manager Review',
             'role' => 'manager',
             'order' => 2,
-            'days_min' => 0,
-            'next_stage_id' => null
+            'min_days' => 0,
+            'next_stage_id' => null,
         ]);
-        $ceoStage = Stage::create([
+
+        $ceo = Stage::create([
             'name' => 'CEO Approval',
             'role' => 'ceo',
             'order' => 3,
-            'days_min' => 5,
-            'next_stage_id' => null
+            'min_days' => 5,
+            'next_stage_id' => null,
         ]);
 
+        $hr->next_stage_id = $manager->id;
+        $hr->save();
 
-        $hrStage->next_stage_id = $managerStage->id;
-        $hrStage->save();
-
-
-        $managerStage->save();
-
+        $manager->next_stage_id = $ceo->id;
+        $manager->save();
     }
 }

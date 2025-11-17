@@ -9,6 +9,16 @@ class EmployeeSeeder extends Seeder
 {
     public function run(): void
     {
-        Employee::factory(10000)->create();
+        $managers = Employee::factory()->count(10)->create(['role' => 'manager']);
+        $hr = Employee::factory()->create(['role' => 'hr']);
+        $ceo = Employee::factory()->create(['role' => 'ceo']);
+
+        Employee::factory()
+            ->count(1000)
+            ->create()
+            ->each(function ($emp) use ($managers) {
+                $emp->manager_id = $managers->random()->id;
+                $emp->save();
+            });
     }
 }

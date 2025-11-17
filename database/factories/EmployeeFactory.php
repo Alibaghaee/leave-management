@@ -12,12 +12,13 @@ class EmployeeFactory extends Factory
     public function definition(): array
     {
         return [
-            'name_full' => $this->faker->name,
+            'full_name' => $this->faker->name,
             'email' => $this->faker->unique()->safeEmail,
             'position' => $this->faker->jobTitle,
             'manager_id' => null,
             'role' => $this->faker->randomElement(['employee','manager','hr','ceo']),
-            'leave_balance' => $this->faker->numberBetween(0, 30),
+            'leave_balance' => $this->faker->randomFloat(2, 0, 30),
+            'join_date' => $this->faker->date(),
         ];
     }
 }
