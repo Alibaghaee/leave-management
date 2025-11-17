@@ -6,31 +6,24 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class LeaveRequestUpdateRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
     public function rules(): array
     {
         return [
-            'employee_id' => 'required|integer|exists:employees,id',
-            'start_date' => 'required|date|before_or_equal:end_date',
-            'end_date' => 'required|date|after_or_equal:start_date',
-            'time_start' => 'nullable|date_format:H:i',
-            'time_end' => 'nullable|date_format:H:i',
-            'reason' => 'required|string|min:3',
-            'current_stage_id' => 'required|integer|exists:stages,id',
-            'count_days' => 'required|integer|min:1',
-            'leave_type' => 'required|string|in:annual,sick,unpaid,other',
+            'employee_id' => 'sometimes|integer|exists:employees,id',
+            'start_date' => 'sometimes|date',
+            'end_date' => 'sometimes|date|after_or_equal:start_date',
+            'start_time' => 'sometimes|nullable|date_format:H:i',
+            'end_time' => 'sometimes|nullable|date_format:H:i|required_with:start_time',
+            'reason' => 'sometimes|string|min:3',
+            'current_stage_id' => 'sometimes|integer|exists:stages,id',
+            'days_count' => 'sometimes|numeric|min:0.01',
+            'leave_type' => 'sometimes|string|in:annual,sick,unpaid,hourly,other',
+            'meta' => 'nullable|array',
         ];
     }
 }

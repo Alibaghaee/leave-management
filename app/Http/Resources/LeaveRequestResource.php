@@ -2,32 +2,28 @@
 
 namespace App\Http\Resources;
 
-use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class LeaveRequestResource extends JsonResource
 {
-    /**
-     * Transform the resource into an array.
-     *
-     * @return array<string, mixed>
-     */
-    public function toArray(Request $request): array
+    public function toArray($request): array
     {
         return [
             'id' => $this->id,
             'employee_id' => $this->employee_id,
+            'employee_name' => optional($this->employee)->name_full ?? optional($this->employee)->full_name,
             'approver_id' => $this->approver_id,
-            'leave_type' => $this->leave_type ?? null,
+            'leave_type' => $this->leave_type,
             'start_date' => $this->start_date,
             'end_date' => $this->end_date,
-            'time_start' => $this->time_start,
-            'time_end' => $this->time_end,
+            'start_time' => $this->start_time ?? null,
+            'end_time' => $this->end_time ?? null,
             'reason' => $this->reason,
             'status' => $this->status,
-            'current_stage_id' => $this->current_stage_id,
+            'current_stage_id' => $this->current_stage_id ?? null,
             'rejection_reason' => $this->rejection_reason,
-            'count_days' => $this->count_days,
+            'days_count' => (float)($this->days_count ?? 0),
+            'meta' => is_string($this->meta) ? (json_decode($this->meta, true) ?: null) : $this->meta,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
