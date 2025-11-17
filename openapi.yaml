@@ -1,0 +1,572 @@
+openapi: 3.0.2
+info:
+  title: Leave Management API
+  version: "1.0.0"
+  description: >
+    Leave Management API (v1) — leave requests, approvals (HR/Manager/CEO), auditing, and daily aggregation.
+servers:
+  - url: /api/v1
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API
+
+  schemas:
+    ErrorValidation:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    PaginationMeta:
+      type: object
+      properties:
+        current_page: { type: integer }
+        from: { type: integer, nullable: true }
+        last_page: { type: integer }
+        per_page: { type: integer }
+        to: { type: integer, nullable: true }
+        total: { type: integer }
+
+    Employee:
+      type: object
+      properties:
+        id: { type: integer }
+        full_name: { type: string }
+        email: { type: string }
+        position: { type: string, nullable: true }
+        manager_id: { type: integer, nullable: true }
+        role: { type: string, enum: [employee, manager, hr, ceo] }
+        leave_balance: { type: number, format: float }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    EmployeeInput:
+      type: object
+      required:
+        - full_name
+        - email
+        - role
+      properties:
+        full_name: { type: string }
+        email: { type: string }
+        position: { type: string, nullable: true }
+        manager_id: { type: integer, nullable: true }
+        role: { type: string, enum: [employee, manager, hr, ceo] }
+        leave_balance: { type: number, format: float, nullable: true }
+
+    LeaveRequest:
+      type: object
+      properties:
+        id: { type: integer }
+        employee_id: { type: integer }
+        employee_name: { type: string, nullable: true }
+        approver_id: { type: integer, nullable: true }
+        leave_type: { type: string, enum: [annual, sick, unpaid, other, hourly] }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        start_time: { type: string, nullable: true }
+        end_time: { type: string, nullable: true }
+        reason: { type: string, nullable: true }
+        status: { type: string, enum: [draft, pending_hr, pending_manager, pending_ceo, approved, rejected, due_date] }
+        current_stage_id: { type: integer, nullable: true }
+        rejection_reason: { type: string, nullable: true }
+        days_count: { type: number, format: float }
+        meta: { type: object, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    LeaveRequestInput:
+      type: object
+      required:
+        - leave_type
+        - start_date
+        - end_date
+      properties:
+        employee_id: { type: integer, nullable: true, description: "Optional. If omitted, authenticated user's employee_id is used." }
+        leave_type: { type: string, enum: [annual, sick, unpaid, other, hourly] }
+        start_date: { type: string, format: date }
+        end_date: { type: string, format: date }
+        start_time: { type: string, nullable: true }
+        end_time: { type: string, nullable: true }
+        reason: { type: string, nullable: true }
+        meta: { type: object, nullable: true }
+
+    Stage:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        role: { type: string, enum: [hr, manager, ceo] }
+        order: { type: integer }
+        min_days: { type: integer, nullable: true }
+        next_stage_id: { type: integer, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    StageInput:
+      type: object
+      required: [name, role, order]
+      properties:
+        name: { type: string }
+        role: { type: string, enum: [hr, manager, ceo] }
+        order: { type: integer }
+        min_days: { type: integer, nullable: true }
+        next_stage_id: { type: integer, nullable: true }
+
+    LeaveLog:
+      type: object
+      properties:
+        id: { type: integer }
+        leave_request_id: { type: integer }
+        action: { type: string }
+        performed_by: { type: integer }
+        meta: { type: object, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    LeaveLogInput:
+      type: object
+      required: [leave_request_id, action, performed_by]
+      properties:
+        leave_request_id: { type: integer }
+        action: { type: string }
+        performed_by: { type: integer }
+        meta: { type: object, nullable: true }
+
+    EmployeeLeaveSummaryDaily:
+      type: object
+      properties:
+        employee_id: { type: integer }
+        date: { type: string, format: date }
+        leave_type: { type: string, enum: [annual, sick, unpaid, other, hourly] }
+        requested_days: { type: number, format: float }
+        approved_days: { type: number, format: float }
+        rejected_days: { type: number, format: float }
+        pending_days: { type: number, format: float }
+        leave_count: { type: integer }
+
+paths:
+  /employees:
+    get:
+      summary: List employees (paginated)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: per_page
+          schema: { type: integer }
+        - in: query
+          name: full_name
+          schema: { type: string }
+        - in: query
+          name: role
+          schema: { type: string }
+      responses:
+        '200':
+          description: Employee list (paginated)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Employee' }
+                  meta: { $ref: '#/components/schemas/PaginationMeta' }
+    post:
+      summary: Create employee
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmployeeInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Employee' }
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorValidation' }
+
+  /employees/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      summary: Get employee
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Employee' }
+    put:
+      summary: Update employee
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmployeeInput' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Employee' }
+        '422':
+          description: Validation error
+    delete:
+      summary: Delete employee
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: 'Deleted' }
+
+  /leave-requests:
+    get:
+      summary: List leave requests
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: employee_id
+          schema: { type: integer }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: leave_type
+          schema: { type: string }
+        - in: query
+          name: per_page
+          schema: { type: integer }
+      responses:
+        '200':
+          description: List
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/LeaveRequest' }
+                  meta: { $ref: '#/components/schemas/PaginationMeta' }
+    post:
+      summary: Create leave request
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeaveRequestInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/LeaveRequest' }
+        '422':
+          description: Validation / Business rule error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorValidation' }
+
+  /leave-requests/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      summary: Get leave request
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/LeaveRequest' }
+    put:
+      summary: Update leave request
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeaveRequestInput' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/LeaveRequest' }
+        '422':
+          description: Validation error
+    delete:
+      summary: Delete leave request
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: 'Deleted' }
+
+  /leave-requests/{id}/approve:
+    post:
+      summary: Approve leave request (authenticated approver)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment: { type: string }
+                idempotency_key: { type: string }
+      responses:
+        '200':
+          description: Approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/LeaveRequest' }
+        '403':
+          description: Forbidden
+        '422':
+          description: Validation / business rule error
+
+  /leave-requests/{id}/reject:
+    post:
+      summary: Reject leave request (authenticated approver)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment: { type: string }
+                idempotency_key: { type: string }
+      responses:
+        '200':
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/LeaveRequest' }
+        '403':
+          description: Forbidden
+        '422':
+          description: Validation / business rule error
+
+  /stages:
+    get:
+      summary: List stages
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: List
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Stage' }
+    post:
+      summary: Create stage
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StageInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Stage' }
+
+  /stages/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: integer }
+    get:
+      summary: Get stage
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Stage' }
+    put:
+      summary: Update stage
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StageInput' }
+      responses:
+        '200':
+          description: Updated
+    delete:
+      summary: Delete stage
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204':
+          description: Deleted
+
+  /leave-logs:
+    get:
+      summary: List leave logs
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: leave_request_id
+          schema: { type: integer }
+      responses:
+        '200':
+          description: List
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/LeaveLog' }
+    post:
+      summary: Create leave log (internal/admin)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeaveLogInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/LeaveLog' }
+
+  /employee-leave-summaries/daily:
+    get:
+      summary: Query daily leave reporting summaries
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: employee_id
+          schema: { type: integer }
+        - in: query
+          name: date
+          schema: { type: string, format: date }
+        - in: query
+          name: leave_type
+          schema: { type: string, enum: [annual, sick, unpaid, other, hourly] }
+        - in: query
+          name: per_page
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Daily aggregate summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/EmployeeLeaveSummaryDaily' }
+                  meta: { $ref: '#/components/schemas/PaginationMeta' }
+    post:
+      summary: Manually trigger aggregation for a given date
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date]
+              properties:
+                date:
+                  type: string
+                  format: date
+      responses:
+        '200':
+          description: Aggregation job triggered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+
+servers:
+  - url: /api/v1
