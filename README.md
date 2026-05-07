@@ -28,8 +28,8 @@
 نیازمندی‌ها: PHP 8.x، Composer، دیتابیس (MySQL/Postgres/SQLite)، Docker اختیاری
 
 ```bash
-git clone <repo-url>
-cd <repo>
+git clone https://github.com/Alibaghaee/leave-management.git
+cd leave-management
 
 cp .env.example .env
 composer install
@@ -296,7 +296,5 @@ openapi.yaml
 
 ---
 
-## لایسنس
 
-این پروژه با **MIT License** منتشر شده است.
 
