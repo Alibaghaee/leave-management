@@ -1,95 +1,94 @@
-# Leave Management
+Leave Management
 
-سامانهٔ بک‌اند سازمانی برای مدیریت مرخصی‌ها (Laravel).  
-شامل CRUD درخواست مرخصی، مسیر تأیید (HR → Manager → CEO)، ثبت لاگ‌ها (auditing)، و مکانیزم گزارش‌گیری/تجمیع روزانه (aggregation) مقیاس‌پذیر.
+An enterprise backend system for leave management built with Laravel.
+It includes CRUD operations for leave requests, an approval pipeline (HR → Manager → CEO), audit logging, and a scalable daily reporting/aggregation mechanism.
 
----
+⸻
 
-## فهرست مطالب
+Table of Contents
 
-- [شروع سریع](#شروع-سریع)
-- [معماری](#معماری)
-- [احراز هویت](#احراز-هویت)
-- [مسیرها / Endpoints کلی](#مسیرها--endpoints-کلی)
-- [قوانین مسیر تأیید (Approval pipeline)](#قوانین-خط-لوله-تأیید-approval-pipeline)
-- [Aggregation / Reporting](#aggregation--reporting)
-- [نمونه درخواست / پاسخ (Examples)](#نمونه-درخواست--پاسخ-examples)
-- [اجرا، صف‌ها و زمان‌بندی (Queue & Scheduler)](#اجرا-صف‌ها-و-زمان‌بندی-queue--scheduler)
-- [تست و lint](#تست-و-lint)
-- [کدهای خطا / Error codes](#کدهای-خطا--error-codes)
-- [OpenAPI / Swagger](#openapi--swagger)
-- [نکات توسعه‌دهنده / Contributing](#نکات-توسعه‌دهنده--contributing)
-- [لایسنس](#لایسنس)
+* Quick Start
+* Architecture
+* Authentication
+* General Routes / Endpoints
+* Approval Pipeline Rules
+* Aggregation / Reporting
+* Request / Response Examples
+* Execution, Queues & Scheduling
+* Testing & Linting
+* Error Codes
+* OpenAPI / Swagger
+* Developer Notes / Contributing
+* License
 
----
+⸻
 
-## شروع سریع
+Quick Start
 
-نیازمندی‌ها: PHP 8.x، Composer، دیتابیس (MySQL/Postgres/SQLite)، Docker اختیاری
+Requirements: PHP 8.x, Composer, Database (MySQL/Postgres/SQLite), Docker (optional)
 
-```bash
 git clone https://github.com/Alibaghaee/leave-management.git
 cd leave-management
-
 cp .env.example .env
 composer install
 php artisan key:generate
-
 php artisan migrate --seed
-
 php artisan serve
-```
 
-### دریافت توکن Sanctum
-```php
+Get a Sanctum Token
+
 php artisan tinker
 $user = \App\Models\User::first();
 $token = $user->createToken('api')->plainTextToken;
-```
 
-در درخواست‌ها ارسال کنید:
-```
+Send the token with your requests:
+
 Authorization: Bearer <TOKEN>
-```
 
----
+⸻
 
-## معماری
+Architecture
 
-- لایه‌ای: Controllers → DTOs → Services → Repositories → Models
-- خروجی API مبتنی بر JsonResource (فرمت `{ data, meta, links }`)
-- مراحل تأیید (Stage) با `order`, `role`, `min_days` پیکربندی شده‌اند
-- استفاده از لاگ‌ها برای:
-    - auditing
-    - idempotency
-    - رد/تأیید چندمرحله‌ای
+* Layered architecture: Controllers → DTOs → Services → Repositories → Models
+* API responses are based on JsonResource with the { data, meta, links } format
+* Approval stages are configured using order, role, and min_days
+* Logs are used for:
+    * auditing
+    * idempotency
+    * multi-stage approval/rejection tracking
 
-مدل‌ها: Employee، LeaveRequest، Stage، LeaveLog  
-گزارش‌گیری از طریق summary tables: daily/monthly/yearly
+Models:
 
----
+* Employee
+* LeaveRequest
+* Stage
+* LeaveLog
 
-## احراز هویت
+Reporting is handled through summary tables:
 
-کل API در مسیر `/api/v1` با middleware زیر محافظت شده:
+* daily
+* monthly
+* yearly
 
-```
+⸻
+
+Authentication
+
+The entire API under /api/v1 is protected by the following middleware:
+
 auth:sanctum
-```
 
-کلاینت‌ها باید **Bearer Token** ارائه دهند.
+Clients must provide a Bearer Token.
 
----
+⸻
 
-## مسیرها / Endpoints کلی
+General Routes / Endpoints
 
-```
 GET    /api/v1/employees
 POST   /api/v1/employees
 GET    /api/v1/employees/{id}
 PUT    /api/v1/employees/{id}
 DELETE /api/v1/employees/{id}
-
 GET    /api/v1/leave-requests
 POST   /api/v1/leave-requests
 GET    /api/v1/leave-requests/{id}
@@ -97,85 +96,82 @@ PUT    /api/v1/leave-requests/{id}
 DELETE /api/v1/leave-requests/{id}
 POST   /api/v1/leave-requests/{id}/approve
 POST   /api/v1/leave-requests/{id}/reject
-
 GET    /api/v1/stages
 POST   /api/v1/stages
 GET    /api/v1/stages/{id}
 PUT    /api/v1/stages/{id}
 DELETE /api/v1/stages/{id}
-
 GET    /api/v1/leave-logs
 POST   /api/v1/leave-logs
-
 GET    /api/v1/employee-leave-summaries/daily
 POST   /api/v1/employee-leave-summaries/daily/aggregate
-```
 
----
+⸻
 
-## قوانین مسیر تأیید (Approval pipeline)
+Approval Pipeline Rules
 
-### نقش‌ها و محدودیت‌ها
-- HR → همیشه می‌تواند تأیید کند
-- Manager → فقط برای کارکنانی که `employee.manager_id == manager.id`
-- CEO → فقط زمانی که `days_count >= min_days` مرحلهٔ CEO باشد
+Roles and Restrictions
 
-### نوع خطاها طبق تست‌ها:
-- اگر کاربر **کاملاً غیرمجاز** باشد → `403 Forbidden`
-- اگر manager بخواهد درخواست کسی را که زیرمجموعه‌اش نیست approve کند → `422 Unprocessable Entity`
+* HR → can always approve
+* Manager → can only approve requests for employees where employee.manager_id == manager.id
+* CEO → can only approve when days_count >= min_days configured for the CEO stage
 
-### مراحل
-- Stage شامل:
-    - name
-    - role
-    - order
-    - min_days
-    - next_stage_id
+Error Types According to Tests
 
-### Idempotency
-`idempotency_key` برای جلوگیری از انجام دوبارهٔ approve/reject استفاده می‌شود  
-اگر همان کلید قبلاً مصرف شده باشد، عملیات بدون هیچ تغییری برمی‌گردد.
+* If the user is completely unauthorized → 403 Forbidden
+* If a manager attempts to approve a request belonging to an employee who is not their subordinate → 422 Unprocessable Entity
 
----
+Stages
 
-## Aggregation / Reporting
+Each stage contains:
 
-- جدول‌های تجمیعی → روزانه/ماهانه/سالانه
-- اجرای دستی:
-```bash
+* name
+* role
+* order
+* min_days
+* next_stage_id
+
+Idempotency
+
+idempotency_key is used to prevent duplicate approve/reject operations.
+
+If the same key has already been consumed, the operation returns without making any changes.
+
+⸻
+
+Aggregation / Reporting
+
+* Aggregation tables → daily/monthly/yearly
+* Manual execution:
+
 php artisan leave:aggregate-employee-leave-daily --date=2025-11-16
-```
 
 API:
-```
+
 POST /api/v1/employee-leave-summaries/daily/aggregate
-```
 
 Query:
-```
+
 GET /api/v1/employee-leave-summaries/daily?employee_id=1&date=2025-12-01
-```
 
-Aggregation ایمن، idempotent و queue-based است.
+Aggregation is designed to be safe, idempotent, and queue-based.
 
----
+⸻
 
-## نمونه درخواست / پاسخ (Examples)
+Request / Response Examples
 
-### ایجاد مرخصی روزانه
-```json
+Create a Daily Leave Request
+
 POST /api/v1/leave-requests
-
 {
   "leave_type": "annual",
   "start_date": "2025-12-01",
   "end_date": "2025-12-03",
   "reason": "Vacation"
 }
-```
 
-پاسخ:
-```json
+Response:
+
 {
   "data": {
     "id": 12,
@@ -187,10 +183,9 @@ POST /api/v1/leave-requests
     "current_stage_id": 1
   }
 }
-```
 
-### ایجاد مرخصی ساعتی (نیم روز)
-```json
+Create an Hourly Leave Request (Half Day)
+
 {
   "leave_type": "hourly",
   "start_date": "2025-12-10",
@@ -199,102 +194,92 @@ POST /api/v1/leave-requests
   "end_time": "13:00",
   "reason": "Doctor appointment"
 }
-```
 
-days_count = `(hours / 8)` → مثال بالا = `0.5`
+days_count = (hours / 8) → the example above = 0.5
 
-### تأیید مرحله‌ای
-```json
+Multi-Stage Approval
+
 POST /api/v1/leave-requests/12/approve
 {
   "comment": "OK",
   "idempotency_key": "hr-12-approve"
 }
-```
 
----
+⸻
 
-## اجرا، صف‌ها و زمان‌بندی (Queue & Scheduler)
+Execution, Queues & Scheduling
 
-### Queue worker
-```bash
+Queue Worker
+
 php artisan queue:work
-```
 
-### Cron برای schedule:
-```
+Cron for Scheduler
+
 * * * * * cd /path/to/project && php artisan schedule:run >> /dev/null 2>&1
-```
 
-پیشنهاد: در Docker دو سرویس جدا برای worker و scheduler.
+Recommendation: Use two separate Docker services for the worker and scheduler.
 
----
+⸻
 
-## تست و lint
+Testing & Linting
 
-```bash
 php artisan test
 php artisan test --parallel
-```
 
-در صورت وجود:
-```bash
+If available:
+
 composer cs-check
 composer phpstan
-```
 
----
+⸻
 
-## کدهای خطا / Error codes
+Error Codes
 
-| وضعیت | توضیح |
-|-------|--------|
-| 200 | موفق |
-| 201 | ایجاد شد |
-| 204 | حذف شد |
-| 401 | احراز هویت ناموفق |
-| 403 | مجوز کافی نیست |
-| 422 | خطای اعتبارسنجی / قوانین کسب‌وکار |
-| 500 | خطای سرور |
+Status	Description
+200	Success
+201	Created
+204	Deleted
+401	Authentication failed
+403	Insufficient permissions
+422	Validation / business rule error
+500	Server error
 
-نمونه خطای 422:
-```json
+Example 422 error:
+
 {
   "message": "The given data was invalid.",
   "errors": {
     "start_date": ["required"]
   }
 }
-```
 
----
+⸻
 
-## OpenAPI / Swagger
+OpenAPI / Swagger
 
-فایل اصلی:
-```
+Main file:
+
 openapi.yaml
-```
 
-سازگار با Swagger UI / Redoc.  
-شامل:
-- security scheme برای Bearer token
-- تعریف کامل schemaها
-- مسیرهای همهٔ منابع
+Compatible with Swagger UI / Redoc.
 
----
+Includes:
 
-## نکات توسعه‌دهنده / Contributing
+* Bearer token security scheme
+* Complete schema definitions
+* Routes for all resources
 
-- پیروی از PSR-12
-- ایجاد Pull Request همراه با تست
-- عدم تغییر در رفتار pipeline بدون Test
-- قبل از merge اجرای کامل
-  ```
-  php artisan test
-  ```
+⸻
 
----
+Developer Notes / Contributing
 
+* Follow PSR-12
+* Create Pull Requests with accompanying tests
+* Do not change approval pipeline behavior without updating tests
+* Run the complete test suite before merging:
 
+php artisan test
 
+⸻
+
+License
